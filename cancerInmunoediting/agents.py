@@ -14,53 +14,41 @@ class CancerCell(mesa.Agent):
         self.t0 = 0.5
         self.k = 4
         self.n = 1
-    
-    def growth(self,t):
+        self.noCells = 1
+        self.antiTumor = False
+        
         self.Beta = np.random.normal(self.mu, self.sigma)
         self.a = 10*self.Beta - 1 
-        self.noCells = self.noCells + self.a/(1 + np.e**(-self.k *(t-self.t0) ))
+        
+    
+    def updateCluster(self):
+        self.noCells = self.noCells + self.a/(1 + np.e**(-self.k *(self.model.schedule.time - self.t0) ))
+        # print(self.noCells)
+
+    def growth(self):
+        newCells = int(self.a/(1 + np.e**(-self.k*(self.model.schedule.time - self.t0))))
+        for i in range(newCells):
+            cell = CancerCell(self.model.next_id(), self.model, self.mu, self.sigma, self.k, self.t0)
+            self.model.schedule.add(cell)
+            self.model.grid.place_agent(cell, (self.width,self.height))
         
     def step(self):
+        self.updateCluster()
+        # self.growth()
         if self.interaction():
-            # NKCells = [obj for obj in self.model.grid.get_cell_list_contents([self.pos]) if isinstance(obj, CellNK)][0]
-            # print(NKCells)
-            # print("Longitud",len(NKCells))
-            NKCells = [elem for elem in self.model.grid.get_cell_list_contents([self.pos]) if elem.__class__.__name__ == 'CellNK']
-            NKCellChoice = self.random.choice(NKCells)
-            
-            if NKCellChoice.interactionAttack:
-                self.model.grid.remove_agent(self)
-                self.model.schedule.remove(self)
-                
-            # print(NKCellChoice.__class__.__name__)
-            # print(dir(NKCellChoice))
-            # NKCellChoice.attack(self)
-            # NKCellChoice.stepConditional()
-            
-            # CellsM = [elem for elem in self.model.grid.get_cell_list_contents([self.pos]) if elem.__class__.__name__ == 'CellM']
-            # CellMChoice = self.random.choice(CellsM)
-            # CellMChoice.stepConditional()
-            
-            # CellsN = [elem for elem in self.model.grid.get_cell_list_contents([self.pos]) if elem.__class__.__name__ == 'CellN']
-            # CellNChoice = self.random.choice(CellsN)
-            # CellNChoice.stepConditional()
-            
-            # print(NKCells)
-            # print(dir(NKCellChoice))
-            # print(type(NKCellChoice))
-            # print(NKCellChoice.__class__.__name__)
-            
-        # self.n = self.n * self.a * self.k * ( np.e**(-self.k * (t-self.t0) ))/( 1 + np.e**(-self.k * (t - self.t0)) )**2
+            self.model.contNKAttack += 1
+        
             
     def interaction(self):
-        return self.prAntiProd >= np.random.normal(0,1)
+        return self.prAntiProd >= np.random.uniform(0,1)
     
 
 class InIScell(mesa.Agent):
     width = 0
     height = 0
-    def __init__(self, unique_id, model, mu, sigma):
+    def __init__(self, unique_id, model, mu, sigma, maxAge):
         super().__init__(unique_id, model)
+        self.antiTumor = True
         self.prRecruit = np.random.normal(mu,sigma)
         self.prAttack = np.random.normal(mu,sigma)
         
@@ -68,158 +56,233 @@ class InIScell(mesa.Agent):
         self.mu = mu
         
         self.n = 1
+        self.age = int(np.random.normal(50,20))
+        self.maxAge = maxAge
     
     def interactionRecruit(self):
-        return self.prRecruit >= np.random.normal(0,1)
+        return self.prRecruit >= np.random.uniform(0,1)
     
     def interactionAttack(self):
-        return self.prAttack >= np.random.normal(0,1)
+        return self.prAttack >= np.random.uniform(0,1)
     
-    def attack(self,CancerCellChoice):
-        pass
-        # print("aaaaaaaaaaaaaaaaaaaaaS")
-        # if  self.interactionAttack():
-        #     # print(self.model.grid.get_cell_list_contents([self.pos]))
-        #     print(self.model.schedule.agents_by_type[CancerCell].keys())
-        #     print("antes de eliminar la célula")
-        #     # print([elem for elem in self.model.schedule._agents])
-        #     print(len(self.model.schedule._agents))
-        #     # print(self.model.schedule())
-        #     # CancerCells = [elem for elem in self.model.grid.get_cell_list_contents([self.pos]) if isinstance(elem, CancerCell)]
-        #     # # CancerCells = [elem for elem in self.model.grid.get_cell_list_contents([self.pos]) if elem.__class__.__name__ == 'CancerCell']
-        #     # CancerCellChoice = self.random.choice(CancerCells)
-            
-        #     self.model.grid.remove_agent(CancerCellChoice)
-        #     self.model.schedule.remove(CancerCellChoice)
-            
-        #     print("Eliminando una célula de cáncer")
-        #     print(type(CancerCellChoice))
-        #     print(CancerCellChoice.__class__.__name__)
-        #     self.model.grid.remove_agent(CancerCellChoice)
-        #     self.model.schedule.remove(CancerCellChoice)
-        #     print("después de eliminar una célula")
-        #     print(len(self.model.schedule._agents))
-    
-    def step(self):
-        # print("Hola")
-        # print(self.__class__.__name__)
-        pass
+    def die(self):
+        if self.maxAge <= self.age:
+            self.model.grid.remove_agent(self)
+            self.model.schedule.remove(self)
+        self.age += 1
         
 class CellNK(InIScell):
-    def __init__(self, unique_id, model, mu, sigma):
-        super().__init__(unique_id, model, mu, sigma)
-        self.antiTumor = True
+    def __init__(self, unique_id, model, mu, sigma,maxAge):
+        super().__init__(unique_id, model, mu, sigma, maxAge)
         
     def recruit(self):
         if  self.interactionRecruit():
-            cell = CellNK(self.model.next_id(), self.model, self.mu, self.sigma)
+            cell = CellNK(self.model.next_id(), self.model, self.mu, self.sigma, self.maxAge)
             self.model.schedule.add(cell)
             self.model.grid.place_agent(cell, (self.width,self.height))
-        
+    
+    def attack(self):
+        if self.model.contNKAttack > 0 :
+            self.model.contN1Attack += 1
+            self.model.contM1Attack += 1
+            if self.interactionAttack():
+                CCs = [elem for elem in self.model.grid.get_cell_list_contents([self.pos]) if elem.__class__.__name__ == 'CancerCell']
+                if len(CCs):
+                    CC = self.random.choice(CCs)
+                    CC.noCells -= 1
+                    if CC.noCells < 1:
+                        self.model.grid.remove_agent(CC)
+                        self.model.schedule.remove(CC)
+        self.model.contNKAttack -= 1
+    
     def step(self):
-        self.recruit()
-        # self.attack()
+        if 33 < self.age < 77:
+            # self.recruit()
+            self.attack()
+        self.die()
         
-        
-    
-    
 class CellM(InIScell):
-    def __init__(self, unique_id, model, mu, sigma, mu2, sigma2):
-        super().__init__(unique_id, model, mu, sigma)
-        self.antiTumor = True
+    def __init__(self, unique_id, model, mu, sigma, mu2, sigma2, maxAge):
+        super().__init__(unique_id, model, mu, sigma, maxAge)
         self.prProTumor = np.random.normal(mu2,sigma2)
         self.mu2 = mu2
         self.sigma2 = sigma2
+        self.maxAge = {True:maxAge[0],False:maxAge[1]}
         
     def recruit(self):
         if self.interactionRecruit():
-            cell = CellM(self.model.next_id(), self.model, self.mu, self.sigma, self.mu2, self.sigma2)
+            cell = CellM(self.model.next_id(), self.model, self.mu, self.sigma, self.mu2, self.sigma2, self.maxAge)
             self.model.schedule.add(cell)
             self.model.grid.place_agent(cell, (self.width,self.height))
             
-    def stepConditional(self):
-        if self.antiTumor:
-            self.recruit()
-            self.attack()
-            self.becomeM2()
-            
     def becomeM2(self):
-        if (self.prProTumor >= np.random.normal(0,1)):
+        if (self.prProTumor >= np.random.uniform(0,1)):
             self.antiTumor = False
+            
+    def attack(self):
+        if self.model.contM1Attack > 0 & self.interactionAttack():
+            CCs = [elem for elem in self.model.grid.get_cell_list_contents([self.pos]) if elem.__class__.__name__ == 'CancerCell']
+            if len(CCs):
+                CC = self.random.choice(CCs)
+                CC.noCells -= 1
+                if CC.noCells < 1:
+                    self.model.grid.remove_agent(CC)
+                    self.model.schedule.remove(CC)
+        self.model.contM1Attack -= 1
+    
+    def die(self):
+        if self.maxAge[self.antiTumor] <= self.age:
+            self.model.grid.remove_agent(self)
+            self.model.schedule.remove(self)
+        self.age += 1
+    
+    def step(self):
+        if self.antiTumor:
+            if 33 < self.age < 77:
+                # self.recruit()
+                self.attack()
+            self.becomeM2()
+        self.die()
+        
             
 
 class CellN(InIScell):
-    def __init__(self, unique_id, model, mu, sigma, mu2, sigma2):
-        super().__init__(unique_id, model, mu, sigma)
-        self.antiTumor = True
+    def __init__(self, unique_id, model, mu, sigma, mu2, sigma2, maxAge):
+        super().__init__(unique_id, model, mu, sigma, maxAge)
         self.prProTumor = np.random.normal(mu2,sigma2)
         self.mu2 = mu2
         self.sigma2 = sigma2
+        self.maxAge = {True:maxAge[0],False:maxAge[1]}
         
     def recruit(self):
         if self.interactionRecruit():
-            cell = CellM(self.model.next_id(), self.model, self.mu, self.sigma, self.mu2, self.sigma2)
+            cell = CellM(self.model.next_id(), self.model, self.mu, self.sigma, self.mu2, self.sigma2, self.maxAge)
             self.model.schedule.add(cell)
             self.model.grid.place_agent(cell, (self.width,self.height))
-        
-    def stepConditional(self):
+    
+    def attack(self):
+        if self.model.contN1Attack > 0 & self.interactionAttack():
+            CCs = [elem for elem in self.model.grid.get_cell_list_contents([self.pos]) if elem.__class__.__name__ == 'CancerCell']
+            if len(CCs):
+                CC = self.random.choice(CCs)
+                CC.noCells -= 1
+                if CC.noCells < 1:
+                    self.model.grid.remove_agent(CC)
+                    self.model.schedule.remove(CC)
+        self.model.contN1Attack -= 1
+    
+    def die(self):
+        if self.maxAge[self.antiTumor] <= self.age:
+            self.model.grid.remove_agent(self)
+            self.model.schedule.remove(self)
+        self.age += 1
+    
+    def step(self):
         if self.antiTumor:
-            self.recruit()
-            self.attack()
-            self.becomeN2()
+            if 33 < self.age < 77:
+                self.recruit()
+                self.attack()
+                self.becomeN2()
+        self.die()
             
     def becomeN2(self):
         if (self.prProTumor >= np.random.normal(0,1)):
             self.antiTumor = False
 
 class AdIScell(mesa.Agent):
-    def __init__(self, unique_id, model, mu, sigma):
+    width = 0
+    height = 0
+    def __init__(self, unique_id, model, mu, sigma, maxAge):
         super().__init__(unique_id, model)
+        self.antiTumor = True
         self.prRecruit = np.random.normal(mu,sigma)
         
         self.sigma = sigma
         self.mu = mu
         
         self.n = 1
+        self.age = int(np.random.normal(50,20))
+        self.maxAge = maxAge
+        
+    def die(self):
+        if self.maxAge <= self.age:
+            self.model.grid.remove_agent(self)
+            self.model.schedule.remove(self)
+        self.age += 1
     
     def interactionRecruit(self):
-        return self.prRecruit >= np.random.normal(0,1)
-    
-    def step(self):
-        pass
+        return self.prRecruit >= np.random.uniform(0,1)
+
 
 class TCell(AdIScell):
-    def __init__(self, unique_id, model, mu, sigma):
-        super().__init__(unique_id, model, mu, sigma)
+    def __init__(self, unique_id, model, mu, sigma,maxAge):
+        super().__init__(unique_id, model, mu, sigma, maxAge)
         self.prAttack = np.random.normal(mu,sigma)
     
     def recruit(self):
         if self.interactionRecruit():
-            cell = TCell(self.model.next_id, self.model, self.mu, self.sigma)
+            cell = TCell(self.model.next_id, self.model, self.mu, self.sigma, self.maxAge)
             self.model.schedule.add(cell)
     
     def interactionAttack(self):
-        return self.prAttack >= np.random.normal(0,1)
+        return self.prAttack >= np.random.uniform(0,1)
     
-    def Attack(self, tumorCell):
-        if  self.interactionAttack():
-            self.model.schedule.remove(tumorCell)
-            self.model.grid.remove_agent(self)
+    def Attack(self):
+        if self.model.contTAttack > 0 & self.interactionAttack():
+            CCs = [elem for elem in self.model.grid.get_cell_list_contents([self.pos]) if elem.__class__.__name__ == 'CancerCell']
+            if len(CCs):
+                CC = self.random.choice(CCs)
+                CC.noCells -= 1
+                if CC.noCells < 1:
+                    self.model.grid.remove_agent(CC)
+                    self.model.schedule.remove(CC)
+        self.model.contTAttack -= 1
 
+    def step(self):
+        if 33 < self.age < 77:
+            self.Attack()
+        self.die()
+        # self.recruit()
+            
+    
 class ThCell(AdIScell):
-    def __init__(self, unique_id, model, mu, sigma):
-        super().__init__(unique_id, model, mu, sigma)
+    def __init__(self, unique_id, model, mu, sigma,maxAge):
+        super().__init__(unique_id, model, mu, sigma,maxAge)
+        self.prStrenght = np.random.normal(mu,sigma)
+        
     
     def recruit(self):
         if self.interactionRecruit():
-            cell = ThCell(self.model.next_id, self.model, self.mu, self.sigma)
+            cell = ThCell(self.model.next_id, self.model, self.mu, self.sigma, self.maxAge)
             self.model.schedule.add(cell)
+            
+    def strengthening(self):
+        if self.prStrenght >= np.random.uniform(0,1):
+            self.model.contTAttack += 1
+    
+    def step(self):
+        # self.recruit()
+        if 33 < self.age < 77:
+            self.strengthening()
+        self.die()
 
 class TregCell(AdIScell):
-    def __init__(self, unique_id, model, mu, sigma):
-        super().__init__(unique_id, model, mu, sigma)
+    def __init__(self, unique_id, model, mu, sigma, maxAge):
+        super().__init__(unique_id, model, mu, sigma, maxAge)
+        self.prStrenght = np.random.normal(mu,sigma)
     
     def recruit(self):
         if self.interactionRecruit():
-            cell = TregCell(self.model.next_id, self.model, self.mu, self.sigma)
+            cell = TregCell(self.model.next_id, self.model, self.mu, self.sigma, self.maxAge)
             self.model.schedule.add(cell)
+            self.model.grid.place_agent(cell, (self.width,self.height))
+            
+    def strengthening(self):
+        if self.prStrenght >= np.random.uniform(0,1):
+            self.model.contTAttack += 1
+    
+    def step(self):
+        if 33 < self.age < 77:
+            self.strengthening()
+        # self.recruit()
+        self.die()
