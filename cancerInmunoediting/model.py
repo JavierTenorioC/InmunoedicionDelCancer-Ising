@@ -35,6 +35,20 @@ class CancerInmunoediting(mesa.Model):
         self.contNKAttack = 0
         self.contTAttack = 0
         
+        # Distribución de probabilidad 
+        
+        # self.proCancer = 0
+        # self.antiCancer = 0
+        
+        # self.distr = { "d" : [0.2 , 0.3]
+        #               "m" : [0.5 , 0.3]
+        #               "f" : [0.7, 0.3]
+        #     }
+        
+        # Debe de ser en escala de 0-1?
+        # Hay ocasiones donde hay más de 100 células
+        
+        
         self.t0 = 0.5
         self.k = 4
         self.n = 1
@@ -57,6 +71,8 @@ class CancerInmunoediting(mesa.Model):
                 "CellsM2": lambda m: m.schedule.get_type_count(CellM, lambda x: not(x.antiTumor)),
                 "CellsN1": lambda m: m.schedule.get_type_count(CellN, lambda x: x.antiTumor),
                 "CellsN2": lambda m: m.schedule.get_type_count(CellN, lambda x: not(x.antiTumor)),
+                "AntiCancer": lambda m : m.schedule.get_count( lambda x: x.antiTumor),
+                "ProCancer" : lambda m: m.schedule.get_count( lambda x: not(x.antiTumor))
                 }
             )
         

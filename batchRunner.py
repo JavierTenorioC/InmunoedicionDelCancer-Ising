@@ -10,10 +10,10 @@ from cancerInmunoediting.model import CancerInmunoediting
 import pandas as pd
 import numpy as np
 
-params = {"meanIS": np.arange(0.1, 1, 0.4),
-          "stdIS": np.arange(0.1, 1, 0.4),
-          "meanCancer": np.arange(0.1, 1, 0.4),
-          "stdCancer": np.arange(0.1, 1, 0.4),
+params = {"meanIS": np.arange(0.1, 1, 0.2),
+          "stdIS": np.arange(0.1, 1, 0.2),
+          "meanCancer": np.arange(0.1, 1, 0.2),
+          "stdCancer": np.arange(0.1, 1, 0.2),
           }
 
 results = batch_run(

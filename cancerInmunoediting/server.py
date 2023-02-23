@@ -23,16 +23,17 @@ model_params = {
 chart_element1 = mesa.visualization.ChartModule(
     [
         {"Label": "CancerCells", "Color": "#2596be"},
-        {"Label": "CellsM1", "Color": "#9925be"},
-        {"Label": "CellsM2", "Color": "#be4d25"},
-        {"Label": "CellsN1", "Color": "#49be25"},
-        {"Label": "CellsN2", "Color": "#bea925"},
-        {"Label": "CellsNK", "Color": "#041014"},
+        {"Label": "CellsM1",     "Color": "#9925be"},
+        {"Label": "CellsM2",     "Color": "#be4d25"},
+        {"Label": "CellsN1",     "Color": "#49be25"},
+        {"Label": "CellsN2",     "Color": "#bea925"},
+        {"Label": "CellsNK",     "Color": "#041014"},
     ]
 )
 chart_element2 = mesa.visualization.ChartModule(
     [
-        {"Label": "CancerCells", "Color": "#2596be"},
+        {"Label": "ProCancer",  "Color": "#2596be"},
+        {"Label": "AntiCancer", "Color": "#041014"}
     ]
 )
 

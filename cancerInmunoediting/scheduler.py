@@ -26,3 +26,16 @@ class RandomActivationByTypeFiltered(mesa.time.RandomActivationByType):
             if filter_func is None or filter_func(agent):
                 count += 1
         return count
+    
+    def get_count(
+        self,
+        filter_func: Callable[[mesa.Agent], bool] = None,
+    ) -> int:
+        """
+        Returns the current number of agents in the queue that satisfy the filter function.
+        """
+        count = 0
+        for agent in self.agent_buffer(shuffled=False):
+            if filter_func is None or filter_func(agent):
+                count += 1
+        return count

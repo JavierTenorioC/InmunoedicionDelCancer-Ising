@@ -1,6 +1,9 @@
 import mesa
 import numpy as np
 
+# Cambios
+# : se añade el módulo 1 ( % 1 ) a los valores de los parámetros que no pueden ser 
+# menores a 0
 
 class CancerCell(mesa.Agent):
     width = 0
@@ -22,8 +25,9 @@ class CancerCell(mesa.Agent):
         
     
     def updateCluster(self):
-        self.noCells = self.noCells + self.a/(1 + np.e**(-self.k *(self.model.schedule.time - self.t0) ))
+        self.noCells = (self.noCells * self.a * np.e**(-self.k *(self.model.schedule.time - self.t0) ) )/(1 + np.e**(-self.k *(self.model.schedule.time - self.t0) ))**2
         # print(self.noCells)
+        
 
     def growth(self):
         newCells = int(self.a/(1 + np.e**(-self.k*(self.model.schedule.time - self.t0))))
@@ -37,7 +41,6 @@ class CancerCell(mesa.Agent):
         # self.growth()
         if self.interaction():
             self.model.contNKAttack += 1
-        
             
     def interaction(self):
         return self.prAntiProd >= np.random.uniform(0,1)
@@ -74,6 +77,9 @@ class InIScell(mesa.Agent):
 class CellNK(InIScell):
     def __init__(self, unique_id, model, mu, sigma,maxAge):
         super().__init__(unique_id, model, mu, sigma, maxAge)
+        self.t0 = 0.5
+        self.k = 4
+        self.noCells = 1
         
     def recruit(self):
         if  self.interactionRecruit():
@@ -89,11 +95,12 @@ class CellNK(InIScell):
                 CCs = [elem for elem in self.model.grid.get_cell_list_contents([self.pos]) if elem.__class__.__name__ == 'CancerCell']
                 if len(CCs):
                     CC = self.random.choice(CCs)
-                    CC.noCells -= 1
+                    CC.noCells -= 1 
+                    # CC.noCells = CC.noCells - CC.a/(1 + np.e**(-CC.k *(CC.model.schedule.time - CC.t0) ))
                     if CC.noCells < 1:
                         self.model.grid.remove_agent(CC)
                         self.model.schedule.remove(CC)
-        self.model.contNKAttack -= 1
+        self.model.contNKAttack = (self.model.contNKAttack - 1) % 1
     
     def step(self):
         if 33 < self.age < 77:
@@ -128,7 +135,7 @@ class CellM(InIScell):
                 if CC.noCells < 1:
                     self.model.grid.remove_agent(CC)
                     self.model.schedule.remove(CC)
-        self.model.contM1Attack -= 1
+        self.model.contM1Attack = (self.model.contM1Attack - 1) % 1
     
     def die(self):
         if self.maxAge[self.antiTumor] <= self.age:
@@ -169,7 +176,7 @@ class CellN(InIScell):
                 if CC.noCells < 1:
                     self.model.grid.remove_agent(CC)
                     self.model.schedule.remove(CC)
-        self.model.contN1Attack -= 1
+        self.model.contN1Attack = (self.model.contN1Attack - 1) % 1
     
     def die(self):
         if self.maxAge[self.antiTumor] <= self.age:
@@ -236,7 +243,7 @@ class TCell(AdIScell):
                 if CC.noCells < 1:
                     self.model.grid.remove_agent(CC)
                     self.model.schedule.remove(CC)
-        self.model.contTAttack -= 1
+        self.model.contTAttack = (self.model.contTAttack - 1) % 1 
 
     def step(self):
         if 33 < self.age < 77:
