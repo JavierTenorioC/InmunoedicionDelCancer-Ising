@@ -34,6 +34,12 @@ class CancerInmunoediting(mesa.Model):
         self.contN1Attack = 0
         self.contNKAttack = 0
         self.contTAttack = 0
+        self.HAntiCancer = 0
+        self.HProCancer = 0
+        self.HTME = 0
+        
+        self.nProCancer = 0
+        self.nAntiCancer = 0
         
         # Distribución de probabilidad 
         
@@ -149,6 +155,7 @@ class CancerInmunoediting(mesa.Model):
             cell = CancerCell(self.next_id(), self, self.mu2, self.sigma2, self.k, self.t0)
             self.schedule.add(cell)
             self.grid.place_agent(cell, (self.width,self.height))
+        # print(self.newCells)
         return self.newCells
     
     def ISrecuit(self):
@@ -200,10 +207,26 @@ class CancerInmunoediting(mesa.Model):
                 cell = TregCell(self.next_id(), self, self.mu1, self.sigma1, self.maxAgeTreg)
                 self.schedule.add(cell)
                 self.grid.place_agent(cell, (self.width,self.height))
+    
+    # for agent in self.agent_buffer(shuffled=False):
+    
+    def nUpdate(self):
+        # self.nAntiCancer = len([elem for elem in self.grid.get_cell_list_contents([[0,0]]) if elem.antiTumor])
+        # self.nProCancer = len([elem for elem in self.grid.get_cell_list_contents([[0,0]]) if not(elem.antiTumor)])
+        self.nAntiCancer = self.schedule.get_count( lambda x: not(x.antiTumor))
+        self.nProCancer = self.schedule.get_count( lambda x: x.antiTumor)
+        print(f'{self.schedule.get_count( lambda x: x)} elementos')
+        print(self.nAntiCancer, self.nProCancer)
+    
+    def updateH(self):
+        self.HAntiCancer = []
+        
 
     def step(self):
+        self.nUpdate()
         self.cancerGrowth()
         self.ISrecuit()
+        
         # self.contM1Attack = 0
         # self.contN1Attack = 0
         # self.contNKAttack = 0

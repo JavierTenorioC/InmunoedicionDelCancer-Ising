@@ -37,10 +37,18 @@ chart_element2 = mesa.visualization.ChartModule(
     ]
 )
 
+chart_element3 = mesa.visualization.ChartModule(
+    [
+        {"Label": "HAntiCancer",  "Color": "#2596be"},
+        {"Label": "HProCancer", "Color": "#041014"},
+        {"Label": "HTME", "Color": "#be4d25"},
+    ]
+)
+
 # create instance of Mesa ModularServer
 server = mesa.visualization.ModularServer(
     CancerInmunoediting,
-    [chart_element1, chart_element2],
+    [chart_element1, chart_element2, chart_element3],
     "Cancer Inmunoediting Model",
     model_params=model_params,
 )
