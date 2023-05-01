@@ -1,9 +1,16 @@
 import mesa
 import numpy as np
+import math
 
 # Cambios
 # : se añade el módulo 1 ( % 1 ) a los valores de los parámetros que no pueden ser 
 # menores a 0
+
+def normpdf(x, args): # mean, sd
+    var = float(args[1])**2
+    denom = (2*math.pi*var)**.5
+    num = math.exp(-(float(x)-float(args[0]))**2/(2*var))
+    return num/denom
 
 class CancerCell(mesa.Agent):
     width = 0
@@ -17,7 +24,7 @@ class CancerCell(mesa.Agent):
         self.t0 = 0.5
         self.k = 4
         self.n = 1
-        self.noCells = 1
+        self.noCells = int(np.random.normal(mu,sigma)*10)
         self.antiTumor = False
         
         self.Beta = np.random.normal(self.mu, self.sigma)
@@ -25,7 +32,8 @@ class CancerCell(mesa.Agent):
         
     
     def updateCluster(self):
-        self.noCells = (self.noCells * self.a * np.e**(-self.k *(self.model.schedule.time - self.t0) ) )/(1 + np.e**(-self.k *(self.model.schedule.time - self.t0) ))**2
+        self.Beta = np.random.normal(self.mu, self.sigma)
+        self.noCells = (self.noCells * self.a * self.k * np.e**(-self.k *(self.model.schedule.time - self.t0) ) )/(1 + np.e**(-self.k *(self.model.schedule.time - self.t0) ))**2
         # print(self.noCells)
         
 
@@ -52,15 +60,39 @@ class InIScell(mesa.Agent):
     def __init__(self, unique_id, model, mu, sigma, maxAge):
         super().__init__(unique_id, model)
         self.antiTumor = True
+        self.sigma = 0
+        self.mu = 0
+        self.maxAge = maxAge
+        
+        # se calcula la edad según la fortaleza del sistema inmune
+        # print(f'sigma {sigma}')
+        self.age = (int(np.random.normal(mu,1.05 - sigma)) % 1) + 1
+        
+        # se calcula  la distribución de probabilidad asociada a su edad
+        # self.upDateDist()
+        
         self.prRecruit = np.random.normal(mu,sigma)
         self.prAttack = np.random.normal(mu,sigma)
         
-        self.sigma = sigma
-        self.mu = mu
-        
         self.n = 1
-        self.age = int(np.random.normal(50,20))
-        self.maxAge = maxAge
+        
+        
+    
+    def upDateDist(self):
+        maxim = [0,'']
+        for index in [*self.model.dictDistr]:
+            try:
+                n = normpdf(self.age/self.maxAge,self.model.dictDistr[index][0])
+                if((n) >= maxim[0]):
+                    maxim = [n, index]
+            # print(f'age {self.age}')
+            # print(f'{n} {type(n)} n')
+            # print(f'{maxim[0]} {type(maxim[0])} maxim')
+            except:
+                print(f'edad Máxima: {self.maxAge}')
+                print(f'edad: {self.age}')
+            
+        self.mu, self.sigma = self.model.dictDistr[maxim[1]][0]
     
     def interactionRecruit(self):
         return self.prRecruit >= np.random.uniform(0,1)
@@ -69,10 +101,14 @@ class InIScell(mesa.Agent):
         return self.prAttack >= np.random.uniform(0,1)
     
     def die(self):
+        flag = False
         if self.maxAge <= self.age:
             self.model.grid.remove_agent(self)
             self.model.schedule.remove(self)
+            flag = True
         self.age += 1
+        # self.upDateDist()
+        return flag
         
 class CellNK(InIScell):
     def __init__(self, unique_id, model, mu, sigma,maxAge):
@@ -106,12 +142,13 @@ class CellNK(InIScell):
         if 33 < self.age < 77:
             # self.recruit()
             self.attack()
-        self.die()
+        if self.die():
+            self.model._contNKCells -= 1
         
 class CellM(InIScell):
     def __init__(self, unique_id, model, mu, sigma, mu2, sigma2, maxAge):
         super().__init__(unique_id, model, mu, sigma, maxAge)
-        self.prProTumor = np.random.normal(mu2,sigma2)
+        self.prProTumor = np.random.normal(mu/(mu+mu2),sigma)
         self.mu2 = mu2
         self.sigma2 = sigma2
         self.maxAge = {True:maxAge[0],False:maxAge[1]}
@@ -121,6 +158,22 @@ class CellM(InIScell):
             cell = CellM(self.model.next_id(), self.model, self.mu, self.sigma, self.mu2, self.sigma2, self.maxAge)
             self.model.schedule.add(cell)
             self.model.grid.place_agent(cell, (self.width,self.height))
+            
+    def upDateDist(self):
+        maxim = [0,'']
+        for index in [*self.model.dictDistr]:
+            try :
+                n = normpdf(self.age/self.maxAge[self.antiTumor],self.model.dictDistr[index][0])
+                if((n) >= maxim[0]):
+                    maxim = [n, index]
+            # print(f'age {self.age}')
+            # print(f'{n} {type(n)} n')
+            # print(f'{maxim[0]} {type(maxim[0])} maxim')
+            except:
+                print(f'edad Máxima: {self.maxAge[self.antiTumor]}')
+                print(f'edad: {self.age}')
+            
+        self.mu, self.sigma = self.model.dictDistr[maxim[1]][0]
             
     def becomeM2(self):
         if (self.prProTumor >= np.random.uniform(0,1)):
@@ -156,7 +209,7 @@ class CellM(InIScell):
 class CellN(InIScell):
     def __init__(self, unique_id, model, mu, sigma, mu2, sigma2, maxAge):
         super().__init__(unique_id, model, mu, sigma, maxAge)
-        self.prProTumor = np.random.normal(mu2,sigma2)
+        self.prProTumor = np.random.normal(mu/(mu+mu2),sigma)
         self.mu2 = mu2
         self.sigma2 = sigma2
         self.maxAge = {True:maxAge[0],False:maxAge[1]}
@@ -195,6 +248,22 @@ class CellN(InIScell):
     def becomeN2(self):
         if (self.prProTumor >= np.random.normal(0,1)):
             self.antiTumor = False
+    
+    def upDateDist(self):
+        maxim = [0,'']
+        for index in [*self.model.dictDistr]:
+            try:
+                n = normpdf(self.age/self.maxAge[self.antiTumor],self.model.dictDistr[index][0])
+                if((n) >= maxim[0]):
+                    maxim = [n, index]
+            # print(f'age {self.age}')
+            # print(f'{n} {type(n)} n')
+            # print(f'{maxim[0]} {type(maxim[0])} maxim')
+            except:
+                print(f'edad Máxima: {self.maxAge}')
+                print(f'edad: {self.age}')
+            
+        self.mu, self.sigma = self.model.dictDistr[maxim[1]][0]
 
 class AdIScell(mesa.Agent):
     width = 0
@@ -208,7 +277,7 @@ class AdIScell(mesa.Agent):
         self.mu = mu
         
         self.n = 1
-        self.age = int(np.random.normal(50,20))
+        self.age = int(np.random.normal(mu,sigma))
         self.maxAge = maxAge
         
     def die(self):

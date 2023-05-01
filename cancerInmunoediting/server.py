@@ -1,8 +1,5 @@
 import mesa
-
-from cancerInmunoediting.agents import *
 from cancerInmunoediting.model import CancerInmunoediting
-
 # dictionary of user settable parameters - these map to the model __init__ parameters
 model_params = {
     "meanIS": mesa.visualization.Slider(
@@ -18,7 +15,6 @@ model_params = {
         "stdCancer", 0.05, 0.01, 1, 0.01, description="Standard deviation of the Cancer distribution",
     ),
 }
-
 # map data to chart in the ChartModule
 chart_element1 = mesa.visualization.ChartModule(
     [
@@ -44,11 +40,15 @@ chart_element3 = mesa.visualization.ChartModule(
         {"Label": "HTME", "Color": "#be4d25"},
     ]
 )
-
+chart_element4 = mesa.visualization.ChartModule(
+    [
+        {"Label": "TumorGrowthRate",  "Color": "#2596be"},
+    ]
+)
 # create instance of Mesa ModularServer
 server = mesa.visualization.ModularServer(
     CancerInmunoediting,
-    [chart_element1, chart_element2, chart_element3],
+    [chart_element1, chart_element2, chart_element3,chart_element4],
     "Cancer Inmunoediting Model",
     model_params=model_params,
 )
