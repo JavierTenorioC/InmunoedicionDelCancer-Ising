@@ -7,8 +7,12 @@ from cancerInmunoediting.agents import CancerCell, CellNK, CellM, CellN, TCell, 
 
 '''
 Pendientes:
-    Hacer contador y chart de:
-        -Tasa de crecimiento del tumor
+    -Revisar notas de los 3 archivos
+    -Verificar que variables ._contadoras contabilicen la misma cantidad de células que la función del scheduler
+    -Verificar valores -1: sistema inmune y +1 pro cancer, en el hamiltoniano
+    -Modificar chart del tumor growth factor, no se muestrea el valor de Gamma en cada iteración
+Realizando:
+    -Remover los valores asociados a la fortaleza del tumor
 '''
 
 def getVar(model):
@@ -56,6 +60,7 @@ class CancerInmunoediting(mesa.Model):
         
         
         # Distribución de probabilidad 
+
         
         self.dictDistr = { "weak" : [[.25 , .15], 0.5],
                       "medium" : [[.45 , np.random.normal(self.mu1,self.sigma1)], 1],
@@ -79,21 +84,21 @@ class CancerInmunoediting(mesa.Model):
         self.datacollector = mesa.DataCollector(
             {
                 "CancerCells" : lambda m : m.schedule.get_type_count(CancerCell),
-                "CancerCells2" : lambda m : m._contCancerCells,
+                #"CancerCells2" : lambda m : m._contCancerCells,
                 "CellsNK": lambda m: m.schedule.get_type_count(CellNK),
-                "CellsNK2": lambda m: m._contNKCells,
+                #"CellsNK2": lambda m: m._contNKCells,
                 "CellsM1": lambda m: m.schedule.get_type_count(CellM, lambda x: x.antiTumor),
-                "CellsM12": lambda m: m._contM1Cells,
+                #"CellsM12": lambda m: m._contM1Cells,
                 "CellsM2": lambda m: m.schedule.get_type_count(CellM, lambda x: not(x.antiTumor)),
-                "CellsM22": lambda m: m._contM2Cells,
+                #"CellsM22": lambda m: m._contM2Cells,
                 "CellsN1": lambda m: m.schedule.get_type_count(CellN, lambda x: x.antiTumor),
-                "CellsN12": lambda m: m._contN1Cells,
+                #"CellsN12": lambda m: m._contN1Cells,
                 "CellsN2": lambda m: m.schedule.get_type_count(CellN, lambda x: not(x.antiTumor)),
-                "CellsN22": lambda m: m._contN2Cells,
+                #"CellsN22": lambda m: m._contN2Cells,
                 "AntiCancer": lambda m : m.schedule.get_count( lambda x: x.antiTumor),
-                "AntiCancer2": lambda m: m._contNKCells + m._contM1Cells + m._contN1Cells,
+                #"AntiCancer2": lambda m: m._contNKCells + m._contM1Cells + m._contN1Cells,
                 "ProCancer" : lambda m: m.schedule.get_count( lambda x: not(x.antiTumor)),
-                "ProCancer2": lambda m: m._contCancerCells + m._contM2Cells + m._contN2Cells,
+                #"ProCancer2": lambda m: m._contCancerCells + m._contM2Cells + m._contN2Cells,
                 "HAntiCancer" : lambda m: m.HAntiCancer,
                 "HProCancer" : lambda m: m.HProCancer,
                 "HTME": lambda m: m.HTME,
@@ -128,15 +133,15 @@ class CancerInmunoediting(mesa.Model):
         # self.maxAgeTh = int(np.random.normal(self.mu1,self.sigma1)*50) + 10
         # self.maxAgeTreg = int(np.random.normal(self.mu1,self.sigma1)*50) + 10
         
-        
-        self.maxAgeM1 = 100//10
-        self.maxAgeN1 = 100//10
-        self.maxAgeM2 = 100//10
-        self.maxAgeN2 = 100//10
-        self.maxAgeNK = 100//10
-        self.maxAgeT = 100//10
-        self.maxAgeTh = 100//10
-        self.maxAgeTreg = 100//10
+        # Se definió arbitratiamente el valor de 20, esto fue a través de prueba y error
+        self.maxAgeM1 = 100//5
+        self.maxAgeN1 = 100//5
+        self.maxAgeM2 = 100//5
+        self.maxAgeN2 = 100//5
+        self.maxAgeNK = 100//5
+        self.maxAgeT = 100//5
+        self.maxAgeTh = 100//5
+        self.maxAgeTreg = 100//5
         
         self.ages = [self.maxAgeM1, self.maxAgeN1,
                      self.maxAgeM2, self.maxAgeN2,
@@ -188,13 +193,14 @@ class CancerInmunoediting(mesa.Model):
         self.running = True
         self.datacollector.collect(self)
     
+    # generación de edad en un rango
     def generateAge(self,mu,sigma,maxim,offset):
         age = 0
         while age < 10 :
             age = int(np.random.normal(mu,sigma)*maxim) + offset
         return age
         
-        
+    # prototipo de funcion para generar celulas (No terminada)
     def createInitialCells(self,**args):
         
         for i in range(args['noCells']):
@@ -216,8 +222,8 @@ class CancerInmunoediting(mesa.Model):
         # print(self.newCells)
         return self.newCells
     
-    def ISrecuit(self):
-        
+    def ISrecruit(self):
+        #NOTA: modificar la self.recruitPr[] de lista a diccionario
         if self.random.uniform(0,1) >= self.recruitPr[0]:
             a = 10*np.random.normal(self.mu1,self.sigma1)
             newCells = int(a/(1 + np.e**(-self.k*(self.schedule.time - self.t0))))
@@ -284,7 +290,8 @@ class CancerInmunoediting(mesa.Model):
         self.nProCancer = self.schedule.get_count( lambda x: x.antiTumor)
         # print(f'{self.schedule.get_count( lambda x: x)} elementos')
         # print(self.nAntiCancer, self.nProCancer)
-        self.rateCancerGrowth = self.a * self.k * np.e**(-self.k *(self.schedule.time - self.t0)/10 )/(1 + np.e**(-self.k *(self.schedule.time - self.t0)/10 ))**2
+        self.rateCancerGrowth = self.a * self.k * np.e**(-self.k *((self.schedule.time - self.t0)/100) ) / ( \
+            1 + np.e**(-self.k *((self.schedule.time - self.t0)/100) ))**2
         
     
     def updateH(self):
@@ -313,7 +320,9 @@ class CancerInmunoediting(mesa.Model):
         for xi in range(len(self.schedule.agents)):
             for xj in range(xi,len(self.schedule.agents)):
                 if xi != xj:
-                    ans[self.schedule.agents[xi].antiTumor&1] = ans[self.schedule.agents[xi].antiTumor&1] + (int(self.schedule.agents[xi].antiTumor&1)*2 - 1)*10 * (int(self.schedule.agents[xj].antiTumor&1)*2 - 1)*10 
+                    ans[self.schedule.agents[xi].antiTumor] = ans[self.schedule.agents[xi].antiTumor] + \
+                        (int(self.schedule.agents[xi].antiTumor)*2 - 1)*self.schedule.agents[xi].n * \
+                             (int(self.schedule.agents[xj].antiTumor)*2 - 1)*self.schedule.agents[xi].n 
         self.HAntiCancer = ans[0]
         self.HProCancer = ans[1]
         self.HTME = ans[0] + ans[1]
@@ -337,7 +346,7 @@ class CancerInmunoediting(mesa.Model):
     def step(self):
         self.nUpdate()
         self.cancerGrowth()
-        self.ISrecuit()
+        self.ISrecruit()
         self.updateH()
         
         # self.contM1Attack = 0
@@ -353,20 +362,20 @@ class CancerInmunoediting(mesa.Model):
                 [
                     self.schedule.time,
                     self.schedule.get_type_count(CancerCell),
-                    self._contCancerCells,
+                    #self._contCancerCells,
                     self.schedule.get_type_count(CellNK),
-                    self._contNKCells,
+                    #self._contNKCells,
                     self.schedule.get_type_count(CellM),
-                    self._contM1Cells,
+                    #self._contM1Cells,
                     self.schedule.get_type_count(CellN),
-                    self._contN1Cells,
+                    #self._contN1Cells,
                     # self.schedule.get_type_count(TCell),
                     # self.schedule.get_type_count(ThCell),
                     # self.schedule.get_type_count(TregCell),
                     self.schedule.get_type_count(CellM, lambda x: x.antiTumor),
-                    self._contM2Cells,
+                    #self._contM2Cells,
                     self.schedule.get_type_count(CellN, lambda x: not(x.antiTumor)),
-                    self._contN2Cells,
+                    #self._contN2Cells,
                     # self.HAntiCancer,
                     # self.HProCancer,
                     # self.HTME

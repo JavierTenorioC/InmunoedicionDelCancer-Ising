@@ -15,8 +15,11 @@ def normpdf(x, args): # mean, sd
 class CancerCell(mesa.Agent):
     width = 0
     height = 0
+    
     def __init__(self, unique_id, model, mu, sigma, k, t0):
         super().__init__(unique_id, model)
+        # mu debe de ser pequeña, menor a 1
+        # NOTA: dcambiar antigeno por neoantigeno
         self.prAntiProd = np.random.normal(mu,sigma)
         self.Beta = 0
         self.sigma = sigma
@@ -61,12 +64,13 @@ class InIScell(mesa.Agent):
         super().__init__(unique_id, model)
         self.antiTumor = True
         self.sigma = 0
-        self.mu = 0
+        self.mu = 0 
         self.maxAge = maxAge
         
         # se calcula la edad según la fortaleza del sistema inmune
         # print(f'sigma {sigma}')
-        self.age = (int(np.random.normal(mu,1.05 - sigma)) % 1) + 1
+        # self.age = (int(np.random.normal(mu,1.05 - sigma)) % 1) + 1
+        self.age = int(np.random.uniform(1,20))
         
         # se calcula  la distribución de probabilidad asociada a su edad
         # self.upDateDist()
@@ -125,6 +129,7 @@ class CellNK(InIScell):
     
     def attack(self):
         if self.model.contNKAttack > 0 :
+            # ver si en lugar de hacer un contador, que la variable fuera booleana
             self.model.contN1Attack += 1
             self.model.contM1Attack += 1
             if self.interactionAttack():
@@ -174,7 +179,9 @@ class CellM(InIScell):
                 print(f'edad: {self.age}')
             
         self.mu, self.sigma = self.model.dictDistr[maxim[1]][0]
-            
+    
+    # La codificación sigue la tabla 4 para la probabilidad de 
+    # que se convierta a pro tumoral
     def becomeM2(self):
         if (self.prProTumor >= np.random.uniform(0,1)):
             self.antiTumor = False
@@ -277,7 +284,8 @@ class AdIScell(mesa.Agent):
         self.mu = mu
         
         self.n = 1
-        self.age = int(np.random.normal(mu,sigma))
+        self.age = int(np.random.uniform(1,20))
+        # self.age = int(np.random.normal(mu,sigma))
         self.maxAge = maxAge
         
     def die(self):
