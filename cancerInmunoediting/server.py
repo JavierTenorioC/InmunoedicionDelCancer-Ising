@@ -1,21 +1,23 @@
 import mesa
 from cancerInmunoediting.model import CancerInmunoediting
-# dictionary of user settable parameters - these map to the model __init__ parameters
+
+# Diccionario de parametros configurables por el usuario: estos se asignan a los parametros de inicializacion del modelo
 model_params = {
     "meanIS": mesa.visualization.Slider(
-        "meanIS", 0.6, 0.01, 1, 0.01, description="Mean of the Inmune System distribution"
+        "meanIS", 0.9, 0.01, 1, 0.01, description="Media de la distribucion del Sistema Inmunologico"
     ),
     "stdIS": mesa.visualization.Slider(
-        "stdIS", 0.05, 0.01, 1, 0.01, description="Standard Deviation of the Inmune System distribution",
+        "stdIS", 0.05, 0.01, 1, 0.01, description="Desviacion estandar de la distribucion del Sistema Inmunologico",
     ),
     "meanCancer": mesa.visualization.Slider(
-        "meanCancer", 0.6, 0.01, 1, 0.01, description="Mean of the Cancer distribution",
+        "meanCancer", 0.9, 0.01, 1, 0.01, description="Media de la distribucion del Cancer",
     ),
     "stdCancer": mesa.visualization.Slider(
-        "stdCancer", 0.05, 0.01, 1, 0.01, description="Standard deviation of the Cancer distribution",
+        "stdCancer", 0.05, 0.01, 1, 0.01, description="Desviacion estandar de la distribucion del Cancer",
     ),
 }
-# map data to chart in the ChartModule
+
+# Elemento de grafico 1
 chart_element1 = mesa.visualization.ChartModule(
     [
         {"Label": "CancerCells", "Color": "#2596be"},
@@ -26,6 +28,8 @@ chart_element1 = mesa.visualization.ChartModule(
         {"Label": "CellsNK",     "Color": "#041014"},
     ]
 )
+
+# Elemento de grafico 2
 chart_element2 = mesa.visualization.ChartModule(
     [
         {"Label": "ProCancer",  "Color": "#2596be"},
@@ -33,6 +37,7 @@ chart_element2 = mesa.visualization.ChartModule(
     ]
 )
 
+# Elemento de grafico 3
 chart_element3 = mesa.visualization.ChartModule(
     [
         {"Label": "HAntiCancer",  "Color": "#2596be"},
@@ -40,15 +45,18 @@ chart_element3 = mesa.visualization.ChartModule(
         {"Label": "HTME", "Color": "#be4d25"},
     ]
 )
+
+# Elemento de grafico 4
 chart_element4 = mesa.visualization.ChartModule(
     [
         {"Label": "TumorGrowthRate",  "Color": "#2596be"},
     ]
 )
-# create instance of Mesa ModularServer
+
+# Crear instancia del servidor modular de Mesa
 server = mesa.visualization.ModularServer(
-    CancerInmunoediting,
-    [chart_element1, chart_element2, chart_element3,chart_element4],
-    "Cancer Inmunoediting Model",
-    model_params=model_params,
+    CancerInmunoediting,  # Clase del modelo
+    [chart_element1, chart_element2, chart_element3, chart_element4],  # Elementos de graficos para visualizar
+    "Cancer Inmunoediting Model",  # Titulo del servidor
+    model_params=model_params,  # Parametros del modelo
 )

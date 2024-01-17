@@ -1,372 +1,530 @@
 import mesa
 import numpy as np
-import math
-
-# Cambios
-# : se añade el módulo 1 ( % 1 ) a los valores de los parámetros que no pueden ser 
-# menores a 0
-
-def normpdf(x, args): # mean, sd
-    var = float(args[1])**2
-    denom = (2*math.pi*var)**.5
-    num = math.exp(-(float(x)-float(args[0]))**2/(2*var))
-    return num/denom
+import random 
+def contador_llamadas(func):
+    def wrapper(*args, **kwargs):
+        clase_base = args[0].__class__
+        
+        # Utilizar el nombre de la clase como clave en lugar del nombre de la función
+        clase_base_name = clase_base.__name__
+        
+        # Inicializar el diccionario interno si aún no existe
+        if clase_base_name not in args[0].model.function_counts:
+            args[0].model.function_counts[clase_base_name] = {}
+        args[0].model.function_counts[clase_base_name][func.__name__] = args[0].model.function_counts[clase_base_name].get(func.__name__, 0) + 1
+        
+        # Acceder a los valores posicionales
+        # print("Valores posicionales (*args):", args)
+        # print("Valores posicionales (*args):", args[0].model.function_counts)
+        # args[0].model.function_counts[func.__name__] = args[0].model.function_counts.get(func.__name__, 0) + 1
+        # wrapper.llamadas += 1
+        # print(f"Llamada a '{func.__name__}' de la clase '{args[0].__class__.__name__}' - Número de llamadas: {wrapper.llamadas}")
+        return func(*args, **kwargs)
+    wrapper.llamadas = 0
+    return wrapper
 
 class CancerCell(mesa.Agent):
-    width = 0
-    height = 0
-    
-    def __init__(self, unique_id, model, mu, sigma, k, t0):
-        super().__init__(unique_id, model)
-        # mu debe de ser pequeña, menor a 1
-        # NOTA: dcambiar antigeno por neoantigeno
-        self.prAntiProd = np.random.normal(mu,sigma)
-        self.Beta = 0
-        self.sigma = sigma
-        self.mu = mu
-        self.t0 = 0.5
-        self.k = 4
-        self.n = 1
-        self.noCells = int(np.random.normal(mu,sigma)*10)
-        self.antiTumor = False
-        
-        self.Beta = np.random.normal(self.mu, self.sigma)
-        self.a = 10*self.Beta - 1 
-        
-    
-    def updateCluster(self):
-        self.Beta = np.random.normal(self.mu, self.sigma)
-        self.noCells = (self.noCells * self.a * self.k * np.e**(-self.k *(self.model.schedule.time - self.t0) ) )/(1 + np.e**(-self.k *(self.model.schedule.time - self.t0) ))**2
-        # print(self.noCells)
-        
+    """
+    Clase que representa una celula cancerosa en el modelo de simulacion.
+    """
+    def __init__(self, unique_id, model, mu, sigma, pos):
+        """
+        Inicializa una instancia de la clase CancerCell.
 
-    def growth(self):
-        newCells = int(self.a/(1 + np.e**(-self.k*(self.model.schedule.time - self.t0))))
-        for i in range(newCells):
-            cell = CancerCell(self.model.next_id(), self.model, self.mu, self.sigma, self.k, self.t0)
-            self.model.schedule.add(cell)
-            self.model.grid.place_agent(cell, (self.width,self.height))
-        
-    def step(self):
-        self.updateCluster()
-        # self.growth()
-        if self.interaction():
-            self.model.contNKAttack += 1
-            
-    def interaction(self):
-        return self.prAntiProd >= np.random.uniform(0,1)
+        Args:
+            unique_id: ID unico para la celula.
+            model: Instancia del modelo de simulacion.
+            mu: Media para generar el atributo relacionado a las probabilidades.
+            sigma: Desviacion estandar para generar el atributo relacionado a las probabilidades.
+            pos: Posicion inicial de la celula en el espacio.
+        """
+        super().__init__(unique_id, model)
+        self.antiTumor = False
+        self.age = 1
+        self.pos = pos
     
+    @contador_llamadas
+    def step(self):
+        """
+        Metodo que representa el paso de tiempo para la celula cancerosa.
+        Incrementa la edad de la celula.
+        """
+        self.age += 1    
 
 class InIScell(mesa.Agent):
-    width = 0
-    height = 0
-    def __init__(self, unique_id, model, mu, sigma, maxAge):
+    """
+    Clase base para las celulas del sistema inmunologico en el modelo de simulacion.
+    """
+    def __init__(self, unique_id, model, mu, sigma, maxAge, pos):
+        """
+        Inicializa una instancia de la clase InIScell.
+
+        Args:
+            unique_id: ID unico para la celula.
+            model: Instancia del modelo de simulacion.
+            mu: Media para generar el atributo relacionado a las probabilidades.
+            sigma: Desviacion estandar para generar el atributo relacionado a las probabilidades.
+            maxAge: Diccionario que contiene la edad maxima para cada tipo de celula.
+            pos: Posicion inicial de la celula en el espacio.
+        """
         super().__init__(unique_id, model)
         self.antiTumor = True
-        self.sigma = 0
-        self.mu = 0 
         self.maxAge = maxAge
-        
-        # se calcula la edad según la fortaleza del sistema inmune
-        # print(f'sigma {sigma}')
-        # self.age = (int(np.random.normal(mu,1.05 - sigma)) % 1) + 1
-        self.age = int(np.random.uniform(1,20))
-        
-        # se calcula  la distribución de probabilidad asociada a su edad
-        # self.upDateDist()
-        
-        self.prRecruit = np.random.normal(mu,sigma)
-        self.prAttack = np.random.normal(mu,sigma)
-        
-        self.n = 1
-        
-        
-    
-    def upDateDist(self):
-        maxim = [0,'']
-        for index in [*self.model.dictDistr]:
-            try:
-                n = normpdf(self.age/self.maxAge,self.model.dictDistr[index][0])
-                if((n) >= maxim[0]):
-                    maxim = [n, index]
-            # print(f'age {self.age}')
-            # print(f'{n} {type(n)} n')
-            # print(f'{maxim[0]} {type(maxim[0])} maxim')
-            except:
-                print(f'edad Máxima: {self.maxAge}')
-                print(f'edad: {self.age}')
-            
-        self.mu, self.sigma = self.model.dictDistr[maxim[1]][0]
-    
-    def interactionRecruit(self):
-        return self.prRecruit >= np.random.uniform(0,1)
-    
-    def interactionAttack(self):
-        return self.prAttack >= np.random.uniform(0,1)
-    
-    def die(self):
-        flag = False
-        if self.maxAge <= self.age:
-            self.model.grid.remove_agent(self)
-            self.model.schedule.remove(self)
-            flag = True
-        self.age += 1
-        # self.upDateDist()
-        return flag
-        
-class CellNK(InIScell):
-    def __init__(self, unique_id, model, mu, sigma,maxAge):
-        super().__init__(unique_id, model, mu, sigma, maxAge)
-        self.t0 = 0.5
-        self.k = 4
-        self.noCells = 1
-        
-    def recruit(self):
-        if  self.interactionRecruit():
-            cell = CellNK(self.model.next_id(), self.model, self.mu, self.sigma, self.maxAge)
-            self.model.schedule.add(cell)
-            self.model.grid.place_agent(cell, (self.width,self.height))
-    
-    def attack(self):
-        if self.model.contNKAttack > 0 :
-            # ver si en lugar de hacer un contador, que la variable fuera booleana
-            self.model.contN1Attack += 1
-            self.model.contM1Attack += 1
-            if self.interactionAttack():
-                CCs = [elem for elem in self.model.grid.get_cell_list_contents([self.pos]) if elem.__class__.__name__ == 'CancerCell']
-                if len(CCs):
-                    CC = self.random.choice(CCs)
-                    CC.noCells -= 1 
-                    # CC.noCells = CC.noCells - CC.a/(1 + np.e**(-CC.k *(CC.model.schedule.time - CC.t0) ))
-                    if CC.noCells < 1:
-                        self.model.grid.remove_agent(CC)
-                        self.model.schedule.remove(CC)
-        self.model.contNKAttack = (self.model.contNKAttack - 1) % 1
-    
-    def step(self):
-        if 33 < self.age < 77:
-            # self.recruit()
-            self.attack()
-        if self.die():
-            self.model._contNKCells -= 1
-        
+        self.age = 1
+        self.pos = pos
+
 class CellM(InIScell):
-    def __init__(self, unique_id, model, mu, sigma, mu2, sigma2, maxAge):
-        super().__init__(unique_id, model, mu, sigma, maxAge)
-        self.prProTumor = np.random.normal(mu/(mu+mu2),sigma)
+    """
+    Clase que representa una celula M del sistema inmunologico en el modelo de simulacion.
+    Hereda de la clase InIScell.
+    """
+    def __init__(self, unique_id, model, mu, sigma, mu2, sigma2, maxAge, pos):
+        """
+        Inicializa una instancia de la clase CellM.
+
+        Args:
+            unique_id: ID unico para la celula.
+            model: Instancia del modelo de simulacion.
+            mu: Media para generar los atributos relacionados al tipo de celulas M1.
+            sigma: Desviacion estandar para generar los atributos relacionados al tipo de celulas M1.
+            mu2: Media para generar los atributos relacionados al tipo de celulas M2.
+            sigma2: Desviacion estandar para generar los atributos relacionados al tipo de celulas M2.
+            maxAge: Diccionario que contiene la edad maxima para cada tipo de celula.
+            pos: Posicion inicial de la celula en el espacio.
+        """
+        super().__init__(unique_id, model, mu, sigma, maxAge, pos)
+        self.prProTumor = np.random.normal(mu / (mu + mu2), sigma)
         self.mu2 = mu2
         self.sigma2 = sigma2
-        self.maxAge = {True:maxAge[0],False:maxAge[1]}
-        
-    def recruit(self):
-        if self.interactionRecruit():
-            cell = CellM(self.model.next_id(), self.model, self.mu, self.sigma, self.mu2, self.sigma2, self.maxAge)
-            self.model.schedule.add(cell)
-            self.model.grid.place_agent(cell, (self.width,self.height))
-            
-    def upDateDist(self):
-        maxim = [0,'']
-        for index in [*self.model.dictDistr]:
-            try :
-                n = normpdf(self.age/self.maxAge[self.antiTumor],self.model.dictDistr[index][0])
-                if((n) >= maxim[0]):
-                    maxim = [n, index]
-            # print(f'age {self.age}')
-            # print(f'{n} {type(n)} n')
-            # print(f'{maxim[0]} {type(maxim[0])} maxim')
-            except:
-                print(f'edad Máxima: {self.maxAge[self.antiTumor]}')
-                print(f'edad: {self.age}')
-            
-        self.mu, self.sigma = self.model.dictDistr[maxim[1]][0]
+        self.maxAge = {'M1': maxAge[0], 'M2': maxAge[1]}
+        self.CellType = ''
     
-    # La codificación sigue la tabla 4 para la probabilidad de 
-    # que se convierta a pro tumoral
-    def becomeM2(self):
-        if (self.prProTumor >= np.random.uniform(0,1)):
-            self.antiTumor = False
-            
-    def attack(self):
-        if self.model.contM1Attack > 0 & self.interactionAttack():
-            CCs = [elem for elem in self.model.grid.get_cell_list_contents([self.pos]) if elem.__class__.__name__ == 'CancerCell']
-            if len(CCs):
+    @contador_llamadas
+    def polarization(self):
+        """
+        Realiza la polarizacion de la celula M.
+        La polarizacion solo ocurre cuando existen celulas tumorales presentes.
+        """
+        if self.CellType == '':
+            CCs = [agent for agent in self.model.schedule.agents_by_type[CancerCell].values()]
+            if len(CCs) > 0 and np.random.uniform(0, 100) < self.model.successInteracMacrTum:
                 CC = self.random.choice(CCs)
-                CC.noCells -= 1
-                if CC.noCells < 1:
-                    self.model.grid.remove_agent(CC)
-                    self.model.schedule.remove(CC)
-        self.model.contM1Attack = (self.model.contM1Attack - 1) % 1
+                self.model.grid.place_agent(self, CC.pos)
+                if np.random.uniform(0, 100) < self.model.changeM1ToM2:
+                    self.CellType = 'M1'
+                    self.model._contM1Cells += 1
+                else:
+                    self.CellType = 'M2'
+                    self.model._contM2Cells += 1
+                self.model._contMCells -= 1
     
+    @contador_llamadas
+    def tumorInteraction(self):
+        """
+        Interaccion con las celulas tumorales.
+        """
+        if ( (interac := np.random.uniform(0, 100)) < self.model.successTam1) and self.CellType == 'M1':
+            CC = [elem for elem in self.model.grid.get_cell_list_contents((16, 16)) if elem.__class__.__name__ == 'CancerCell']
+            randomCC = random.sample(CC, min(len(CC), self.model.MaxDeactivatingCCByM1))
+            for cell in randomCC:
+                cell.age += 0.1
+        elif self.CellType == 'M2' and interac < self.model.successTam2 :
+            CC = [elem for elem in self.model.grid.get_cell_list_contents((16, 16)) if elem.__class__.__name__ == 'CancerCell']
+            randomCC = random.sample(CC, min(len(CC), self.model.MaxActivatingCCByM2))
+            for cell in randomCC:
+                cell.age -= 0.1
+    
+    @contador_llamadas
     def die(self):
-        if self.maxAge[self.antiTumor] <= self.age:
+        """
+        Determina si la celula M debe morir y la elimina del modelo.
+        """
+        probKill = 4
+        if self.CellType != "" and self.maxAge[self.CellType] < self.age and np.random.uniform(0, 100) < probKill:
             self.model.grid.remove_agent(self)
             self.model.schedule.remove(self)
+            if self.CellType == "M1":
+                self.model._contM1Cells -= 1
+            else:
+                self.model._contM2Cells -= 1
         self.age += 1
     
+    @contador_llamadas
     def step(self):
-        if self.antiTumor:
-            if 33 < self.age < 77:
-                # self.recruit()
-                self.attack()
-            self.becomeM2()
-        self.die()
-        
-            
+        """
+        Metodo que representa el paso de tiempo para la celula M.
+        Ejecuta los diferentes procesos que ocurren durante un paso de tiempo.
+        """
+        self.polarization()
+        self.tumorInteraction()
+        self.die() 
 
 class CellN(InIScell):
-    def __init__(self, unique_id, model, mu, sigma, mu2, sigma2, maxAge):
-        super().__init__(unique_id, model, mu, sigma, maxAge)
-        self.prProTumor = np.random.normal(mu/(mu+mu2),sigma)
+    """
+    Clase que representa una celula N del sistema inmunologico en el modelo de simulacion.
+    Hereda de la clase InIScell.
+    """
+    def __init__(self, unique_id, model, mu, sigma, mu2, sigma2, maxAge, pos):
+        """
+        Inicializa una instancia de la clase CellN.
+
+        Args:
+            unique_id: ID unico para la celula.
+            model: Instancia del modelo de simulacion.
+            mu: Media para generar los atributos relacionados a las celulas N1.
+            sigma: Desviacion estandar para generar los atributos relacionados a las celulas N1.
+            mu2: Media para generar los atributos relacionados a las celulas N2.
+            sigma2: Desviacion estandar para generar los atributos relacionados a las celulas N2.
+            maxAge: Diccionario que contiene la edad maxima para cada tipo de celula.
+            pos: Posicion inicial de la celula en el espacio.
+        """
+        super().__init__(unique_id, model, mu, sigma, maxAge, pos)
+        self.prProTumor = np.random.normal(mu / (mu + mu2), sigma)
         self.mu2 = mu2
         self.sigma2 = sigma2
-        self.maxAge = {True:maxAge[0],False:maxAge[1]}
-        
-    def recruit(self):
-        if self.interactionRecruit():
-            cell = CellM(self.model.next_id(), self.model, self.mu, self.sigma, self.mu2, self.sigma2, self.maxAge)
-            self.model.schedule.add(cell)
-            self.model.grid.place_agent(cell, (self.width,self.height))
+        self.maxAge = {'N1': maxAge[0], 'N2': maxAge[1]}
+        self.CellType = ''
     
-    def attack(self):
-        if self.model.contN1Attack > 0 & self.interactionAttack():
-            CCs = [elem for elem in self.model.grid.get_cell_list_contents([self.pos]) if elem.__class__.__name__ == 'CancerCell']
-            if len(CCs):
+    @contador_llamadas
+    def polarization(self):
+        """
+        Realiza la polarizacion de la celula N.
+        La polarizacion solo ocurre cuando existen celulas tumorales presentes.
+        """
+        if self.CellType == '':
+            CCs = [agent for agent in self.model.schedule.agents_by_type[CancerCell].values()]
+            if len(CCs) > 0 and np.random.uniform(0, 100) < self.model.succesInteracNeutTum:
                 CC = self.random.choice(CCs)
-                CC.noCells -= 1
-                if CC.noCells < 1:
-                    self.model.grid.remove_agent(CC)
-                    self.model.schedule.remove(CC)
-        self.model.contN1Attack = (self.model.contN1Attack - 1) % 1
+                self.model.grid.place_agent(self, CC.pos)
+                if np.random.uniform(0, 100) < self.model.changeM1ToM2:
+                    self.CellType = 'N1'
+                    self.model._contN1Cells += 1
+                else:
+                    self.CellType = 'N2'
+                    self.model._contN2Cells += 1
+                self.model._contNCells -= 1
+
+    @contador_llamadas
+    def tumorInteraction(self):
+        """
+        Interaccion con las celulas tumorales.
+        """
+        if ( (interac := np.random.uniform(0, 100)) < self.model.successTan1) and self.CellType == 'N1':
+            CC = [elem for elem in self.model.grid.get_cell_list_contents((16, 16)) if elem.__class__.__name__ == 'CancerCell']
+            randomCC = random.sample(CC, min(len(CC), self.model.MaxDeactivatingCCByN1))
+            for cell in randomCC:
+                cell.age += 0.1
+        elif self.CellType == 'N2' and interac < self.model.successTan2:
+            CC = [elem for elem in self.model.grid.get_cell_list_contents((16, 16)) if elem.__class__.__name__ == 'CancerCell']
+            randomCC = random.sample(CC, min(len(CC), self.model.MaxActivatingCCByN2))
+            for cell in randomCC:
+                cell.age -= 0.1 
     
+    @contador_llamadas
     def die(self):
-        if self.maxAge[self.antiTumor] <= self.age:
+        """
+        Determina si la celula N debe morir y la elimina del modelo.
+        """
+        probKill = 4
+        if self.CellType != "" and self.maxAge[self.CellType] < self.age and np.random.uniform(0, 100) < probKill:
             self.model.grid.remove_agent(self)
             self.model.schedule.remove(self)
+            if self.CellType == "N1":
+                self.model._contN1Cells -= 1
+            else:
+                self.model._contN2Cells -= 1
         self.age += 1
     
+    @contador_llamadas
     def step(self):
-        if self.antiTumor:
-            if 33 < self.age < 77:
-                self.recruit()
-                self.attack()
-                self.becomeN2()
-        self.die()
-            
-    def becomeN2(self):
-        if (self.prProTumor >= np.random.normal(0,1)):
-            self.antiTumor = False
-    
-    def upDateDist(self):
-        maxim = [0,'']
-        for index in [*self.model.dictDistr]:
-            try:
-                n = normpdf(self.age/self.maxAge[self.antiTumor],self.model.dictDistr[index][0])
-                if((n) >= maxim[0]):
-                    maxim = [n, index]
-            # print(f'age {self.age}')
-            # print(f'{n} {type(n)} n')
-            # print(f'{maxim[0]} {type(maxim[0])} maxim')
-            except:
-                print(f'edad Máxima: {self.maxAge}')
-                print(f'edad: {self.age}')
-            
-        self.mu, self.sigma = self.model.dictDistr[maxim[1]][0]
+        """
+        Metodo que representa el paso de tiempo para la celula N.
+        Ejecuta los diferentes procesos que ocurren durante un paso de tiempo.
+        """
+        self.polarization()
+        self.tumorInteraction()
+        self.die() 
 
+class CellNK(InIScell):
+    """
+    Clase que representa una celula NK del sistema inmunologico en el modelo de simulacion.
+    Hereda de la clase InIScell.
+    """
+    def __init__(self, unique_id, model, mu, sigma, maxAge, pos):
+        """
+        Inicializa una instancia de la clase CellNK.
+
+        Args:
+            unique_id: ID unico para la celula.
+            model: Instancia del modelo de simulacion.
+            mu: Media para generar algunos atributos de la celula.
+            sigma: Desviacion estandar para generar algunos atributos de la celula.
+            maxAge: Edad maxima de la celula.
+            pos: Posicion inicial de la celula en el espacio.
+        """
+        super().__init__(unique_id, model, mu, sigma, maxAge, pos)
+    
+    @contador_llamadas
+    def attack(self):
+        """
+        Ataca a las celulas tumorales.
+        """
+        # ataque
+        killPercent = 5
+        if np.random.uniform(0, 100) < self.model.successAttackNk:
+            if self.model._contCancerCells > 0:
+                CCs = [agent for agent in self.model.schedule.agents_by_type[CancerCell].values()]
+                CC = self.random.choice(CCs)
+                self.model.grid.place_agent(self, CC.pos)
+            
+            if self.model._contN2Cells > 0:
+                cellsN = [agent for agent in self.model.schedule.agents_by_type[CellN].values()]
+                cellN = self.random.choice(cellsN)
+                if cellN.CellType == "N2" and cellN.age > self.model.maxAgeN2 and np.random.uniform(0, 100) < killPercent:
+                    self.model.grid.remove_agent(cellN)
+                    self.model.schedule.remove(cellN)
+                    self.model._contN2Cells -= 1
+                    # if self.__class__.__name__ not in self.model.contadorMuertes:
+                    #     self.model.contadorMuertes[self.__class__.__name__] = {}
+                    # self.model.contadorMuertes[self.__class__.__name__] = self.model.contadorMuertes.get(self.__class__.__name__, 0) + 1
+            
+            if self.model._contM2Cells > 0:
+                cellsM = [agent for agent in self.model.schedule.agents_by_type[CellM].values()]
+                cellM = self.random.choice(cellsM)
+                if cellM.CellType == "M2" and cellM.age > self.model.maxAgeM2 and np.random.uniform(0, 100) < killPercent:
+                    self.model.grid.remove_agent(cellM)
+                    self.model.schedule.remove(cellM)
+                    self.model._contM2Cells -= 1
+                    # if self.__class__.__name__ not in self.model.contadorMuertes:
+                    #     self.model.contadorMuertes[self.__class__.__name__] = {}
+                    # self.model.contadorMuertes[self.__class__.__name__] = self.model.contadorMuertes.get(self.__class__.__name__, 0) + 1
+        
+    @contador_llamadas
+    def die(self):
+        """
+        Determina si la celula NK debe morir y la elimina del modelo.
+        """
+        probKill = 4
+        if self.maxAge < self.age and np.random.uniform(0, 100) < probKill:
+            self.model.grid.remove_agent(self)
+            self.model.schedule.remove(self)
+            self.model._contNKCells -= 1
+        self.age += 1
+    
+    @contador_llamadas
+    def step(self):
+        """
+        Metodo que representa el paso de tiempo para la celula NK.
+        Ejecuta los diferentes procesos que ocurren durante un paso de tiempo.
+        """
+        self.attack()
+        self.die()
+        
 class AdIScell(mesa.Agent):
-    width = 0
-    height = 0
-    def __init__(self, unique_id, model, mu, sigma, maxAge):
+    """
+    Clase base para las celulas adicionales del sistema inmunologico en el modelo de simulacion.
+    """
+    def __init__(self, unique_id, model, mu, sigma, maxAge, pos):
+        """
+        Inicializa una instancia de la clase AdIScell.
+
+        Args:
+            unique_id: ID unico para la celula.
+            model: Instancia del modelo de simulacion.
+            mu: Media para generar algunos atributos de la celula.
+            sigma: Desviacion estandar para generar algunos atributos de la celula.
+            maxAge: Edad maxima de la celula.
+            pos: Posicion inicial de la celula en el espacio.
+        """
         super().__init__(unique_id, model)
         self.antiTumor = True
-        self.prRecruit = np.random.normal(mu,sigma)
-        
-        self.sigma = sigma
-        self.mu = mu
-        
-        self.n = 1
-        self.age = int(np.random.uniform(1,20))
-        # self.age = int(np.random.normal(mu,sigma))
+        self.age = 1
         self.maxAge = maxAge
-        
+        self.pos = pos
+
+class TCell(AdIScell):
+    """
+    Clase que representa una celula T del sistema inmunologico en el modelo de simulacion.
+    Hereda de la clase AdIScell.
+    """
+    def __init__(self, unique_id, model, mu, sigma, maxAge, pos):
+        """
+        Inicializa una instancia de la clase TCell.
+
+        Args:
+            unique_id: ID unico para la celula.
+            model: Instancia del modelo de simulacion.
+            mu: Media para generar algunos atributos de la celula.
+            sigma: Desviacion estandar para generar algunos atributos de la celula.
+            maxAge: Edad maxima de la celula.
+            pos: Posicion inicial de la celula en el espacio.
+        """
+        super().__init__(unique_id, model, mu, sigma, maxAge, pos)
+        self.successAttackT = self.model.successAttackT
+    
+    @contador_llamadas
     def die(self):
-        if self.maxAge <= self.age:
+        """
+        Determina si la celula T debe morir y la elimina del modelo.
+        """
+        probKill = 4
+        if self.maxAge < self.age and np.random.uniform(0, 100) < probKill:
             self.model.grid.remove_agent(self)
             self.model.schedule.remove(self)
         self.age += 1
     
-    def interactionRecruit(self):
-        return self.prRecruit >= np.random.uniform(0,1)
-
-
-class TCell(AdIScell):
-    def __init__(self, unique_id, model, mu, sigma,maxAge):
-        super().__init__(unique_id, model, mu, sigma, maxAge)
-        self.prAttack = np.random.normal(mu,sigma)
-    
-    def recruit(self):
-        if self.interactionRecruit():
-            cell = TCell(self.model.next_id, self.model, self.mu, self.sigma, self.maxAge)
-            self.model.schedule.add(cell)
-    
-    def interactionAttack(self):
-        return self.prAttack >= np.random.uniform(0,1)
-    
+    @contador_llamadas
     def Attack(self):
-        if self.model.contTAttack > 0 & self.interactionAttack():
-            CCs = [elem for elem in self.model.grid.get_cell_list_contents([self.pos]) if elem.__class__.__name__ == 'CancerCell']
-            if len(CCs):
-                CC = self.random.choice(CCs)
-                CC.noCells -= 1
-                if CC.noCells < 1:
-                    self.model.grid.remove_agent(CC)
-                    self.model.schedule.remove(CC)
-        self.model.contTAttack = (self.model.contTAttack - 1) % 1 
-
+        """
+        Ataca a las celulas tumorales.
+        """
+        # ataque
+        killPercent = 7
+        
+        CCs = [agent for agent in self.model.schedule.agents_by_type[CancerCell].values()]
+        if len(CCs) and np.random.uniform(0, 100) < self.model.successOfInteracTCellsTumor:
+            CC = self.random.choice(CCs)    
+            self.model.grid.place_agent(self, CC.pos)
+        
+        CCs = [elem for elem in self.model.grid.get_cell_list_contents(self.pos) if elem.__class__.__name__ == 'CancerCell']
+        for agent in CCs:
+        
+            if np.random.uniform(0, 100) < self.successAttackT and ((self.model.maxAgeM2 + self.model.maxAgeN2) / 2) < agent.age:
+                #print(f"edad:{agent.age} > {(self.model.maxAgeM2 + self.model.maxAgeN2) / 10}")
+                self.model.grid.remove_agent(agent)
+                self.model.schedule.remove(agent)
+                self.model._contCancerCells -= 1 
+                # if self.__class__.__name__ not in self.model.contadorMuertes:
+                #     self.model.contadorMuertes[self.__class__.__name__] = {}
+                # self.model.contadorMuertes[self.__class__.__name__] = self.model.contadorMuertes.get(self.__class__.__name__, 0) + 1
+                # self.model._muertesCCporT += 1
+    
+    @contador_llamadas
     def step(self):
-        if 33 < self.age < 77:
-            self.Attack()
+        """
+        Metodo que representa el paso de tiempo para la celula T.
+        Ejecuta los diferentes procesos que ocurren durante un paso de tiempo.
+        """
+        self.Attack()
         self.die()
-        # self.recruit()
-            
     
 class ThCell(AdIScell):
-    def __init__(self, unique_id, model, mu, sigma,maxAge):
-        super().__init__(unique_id, model, mu, sigma,maxAge)
-        self.prStrenght = np.random.normal(mu,sigma)
+    """
+    Clase que representa una celula Th del sistema inmunologico en el modelo de simulacion.
+    Hereda de la clase AdIScell.
+    """
+    def __init__(self, unique_id, model, mu, sigma, maxAge, pos):
+        """
+        Inicializa una instancia de la clase ThCell.
+
+        Args:
+            unique_id: ID unico para la celula.
+            model: Instancia del modelo de simulacion.
+            mu: Media para generar algunos atributos de la celula.
+            sigma: Desviacion estandar para generar algunos atributos de la celula.
+            maxAge: Edad maxima de la celula.
+            pos: Posicion inicial de la celula en el espacio.
+        """
+        super().__init__(unique_id, model, mu, sigma, maxAge, pos)
         
-    
-    def recruit(self):
-        if self.interactionRecruit():
-            cell = ThCell(self.model.next_id, self.model, self.mu, self.sigma, self.maxAge)
-            self.model.schedule.add(cell)
-            
+    @contador_llamadas
     def strengthening(self):
-        if self.prStrenght >= np.random.uniform(0,1):
-            self.model.contTAttack += 1
+        """
+        Fortalece a las celulas T existentes.
+        """
+        TCs = [agent for agent in self.model.schedule.agents_by_type[TCell].values()]
+        if len(TCs) and np.random.uniform(1, 100) < self.model.succesInteracThCellTC:
+            TC = self.random.choice(TCs)
+            self.model.grid.place_agent(self, TC.pos)
+        
+        TCs = [elem for elem in self.model.grid.get_cell_list_contents(self.pos) if elem.__class__.__name__ == 'TCell']
+        for TC in TCs:
+            TC.successAttackT += 0.2
     
+    @contador_llamadas
+    def die(self):
+        """
+        Determina si la celula Th debe morir y la elimina del modelo.
+        """
+        probKill = 4
+        if self.maxAge < self.age and np.random.uniform(0, 100) < probKill:
+            self.model.grid.remove_agent(self)
+            self.model.schedule.remove(self)
+        self.age += 1
+    
+    @contador_llamadas
     def step(self):
-        # self.recruit()
-        if 33 < self.age < 77:
-            self.strengthening()
+        """
+        Metodo que representa el paso de tiempo para la celula Th.
+        Ejecuta los diferentes procesos que ocurren durante un paso de tiempo.
+        """
+        self.strengthening()
         self.die()
 
 class TregCell(AdIScell):
-    def __init__(self, unique_id, model, mu, sigma, maxAge):
-        super().__init__(unique_id, model, mu, sigma, maxAge)
-        self.prStrenght = np.random.normal(mu,sigma)
+    """
+    Clase que representa una celula Treg del sistema inmunologico en el modelo de simulacion.
+    Hereda de la clase AdIScell.
+    """
+    def __init__(self, unique_id, model, mu, sigma, maxAge, pos):
+        """
+        Inicializa una instancia de la clase TregCell.
+
+        Args:
+            unique_id: ID unico para la celula.
+            model: Instancia del modelo de simulacion.
+            mu: Media para generar algunos atributos de la celula.
+            sigma: Desviacion estandar para generar algunos atributos de la celula.
+            maxAge: Edad maxima de la celula.
+            pos: Posicion inicial de la celula en el espacio.
+        """
+        super().__init__(unique_id, model, mu, sigma, maxAge, pos)
     
-    def recruit(self):
-        if self.interactionRecruit():
-            cell = TregCell(self.model.next_id, self.model, self.mu, self.sigma, self.maxAge)
-            self.model.schedule.add(cell)
-            self.model.grid.place_agent(cell, (self.width,self.height))
-            
+    @contador_llamadas
     def strengthening(self):
-        if self.prStrenght >= np.random.uniform(0,1):
-            self.model.contTAttack += 1
+        """
+        Fortalece a las celulas T y Th existentes.
+        """
+        if np.random.uniform(0, 100) < 50:
+            TCs = [agent for agent in self.model.schedule.agents_by_type[TCell].values()]
+            if len(TCs) and np.random.uniform(0, 100) < self.model.successOfInteracTregCellsTCells:
+                TC = self.random.choice(TCs)
+                self.model.grid.place_agent(self, TC.pos)
+            
+            TCs = [elem for elem in self.model.grid.get_cell_list_contents(self.pos) if elem.__class__.__name__ == 'TCell']
+            for TC in TCs:
+                TC.age -= 0.1
+        else:
+            ThCs = [agent for agent in self.model.schedule.agents_by_type[ThCell].values()]
+            if len(ThCs) and np.random.uniform(0, 100) < self.model.successOfInteracTregCellsThCells:
+                ThC = self.random.choice(ThCs)
+                self.model.grid.place_agent(self, ThC.pos)
+            
+            ThCs = [agent for agent in self.model.schedule.agents_by_type[ThCell].values()]
+            # if len(ThCs) and np.random.uniform(0, 100) < self.model.successOfInteracTregCellsThCells:
+            #     ThC = self.random.choice(ThCs)
+            #     self.model.grid.place_agent(self, ThC.pos)
+            # ThCs = [elem for elem in self.model.grid.get_cell_list_contents(self.pos) if elem.__class__.__name__ == 'ThCell']
+            for ThC in ThCs:
+                ThC.age -= 0.1
     
+    @contador_llamadas
+    def die(self):
+        """
+        Determina si la celula Treg debe morir y la elimina del modelo.
+        """
+        probKill = 4
+        if self.maxAge < self.age and np.random.uniform(0, 100) < probKill:
+            self.model.grid.remove_agent(self)
+            self.model.schedule.remove(self)
+            
+        self.age += 1
+    
+    @contador_llamadas
     def step(self):
-        if 33 < self.age < 77:
-            self.strengthening()
-        # self.recruit()
+        """
+        Metodo que representa el paso de tiempo para la celula Treg.
+        Ejecuta los diferentes procesos que ocurren durante un paso de tiempo.
+        """
+        self.strengthening()
         self.die()
