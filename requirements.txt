@@ -1,0 +1,6 @@
+mesa==1.2.1
+numpy
+matplotlib
+pandas
+pygad
+scikit-learn
