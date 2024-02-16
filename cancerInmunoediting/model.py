@@ -1,6 +1,7 @@
 import mesa
 import numpy as np
 import random
+import ast
 from cancerInmunoediting.scheduler import RandomActivationByTypeFiltered
 from cancerInmunoediting.agents import CancerCell, CellNK, CellM, CellN, TCell, ThCell, TregCell
 '''
@@ -29,8 +30,10 @@ class CancerInmunoediting(mesa.Model):
             for funcion_name in funciones:
                 self.function_counts[clase_base_name][funcion_name] = 0
     
-    def __init__(self,meanIS, stdIS, meanCancer, stdCancer):
+    def __init__(self,meanIS, stdIS, meanCancer, stdCancer, initial = "", sameCond = False):
         super().__init__()
+        self.iniciales = initial 
+        self.sameCond = sameCond
         self.contadorMuertes = {}
         self.function_counts = {}
         self.sigma1 = stdIS
@@ -109,7 +112,7 @@ class CancerInmunoediting(mesa.Model):
         self.dictFuction = {'CC' : lambda uniqueID, model, mu, sigma,k ,t0 : CancerCell(uniqueID, model, mu, sigma, k, t0)}
         self.datacollector = mesa.DataCollector(
             {
-                # "CancerCells" : lambda m : m.schedule.get_type_count(CancerCell),
+                "CancerCells" : lambda m : m.schedule.get_type_count(CancerCell),
                 # "CancerCells" : lambda m : m._contCancerCells,
                 "CellsNK": lambda m: m.schedule.get_type_count(CellNK),
                 # "CellsNK": lambda m: m._contNKCells,
@@ -202,7 +205,7 @@ class CancerInmunoediting(mesa.Model):
         self.running = True
         self.datacollector.collect(self)
         self.updateXVector()
-        self.initializeData(False)      
+        self.initializeData()      
         self.initWMatrix()
         
         for i in range(self.initialCancerCells):
@@ -258,14 +261,22 @@ class CancerInmunoediting(mesa.Model):
         y = random.randint(0,self.height-1)
         return (x,y)
     
-    def initializeData(self, mismasCondiciones):
-        if not mismasCondiciones:
+    def initializeData(self):
+        # print(f"Valor de cond : {self.sameCond}" )
+        if not self.sameCond:
+            #print("No mismas")
             self.initialCancerCells = abs(int(np.random.normal(self.mu2,self.sigma2)*100))
+            
             self.initialNaturalKillers = abs(int(np.random.normal(self.mu1,self.sigma1)*100))
-            self.initialMacrofagues = abs(int(np.random.normal(self.mu1,self.sigma1)*100))
-            self.initialNeutrophils = abs(int(np.random.normal(self.mu1,self.sigma1)*100))
             self.initialTCells = int(np.random.normal(self.mu1,self.sigma1)*100)
             self.initialThCells = int(np.random.normal(self.mu1,self.sigma1)*100)
+            #self.initialTCells = abs(int(np.random.normal(0.093508,0.050129)*100))
+            #self.initialThCells = int(np.random.normal(0.358092,0.146504)*100)
+            #self.initialNaturalKillers = abs(int(np.random.normal(0.100434,0.031663)*100))
+            
+            self.initialMacrofagues = abs(int(np.random.normal(self.mu1,self.sigma1)*100))
+            self.initialNeutrophils = abs(int(np.random.normal(self.mu1,self.sigma1)*100))
+            
             self.initialTregCells = int(np.random.normal(self.mu1,self.sigma1)*100)
             
             self._contCancerCells = abs(self.initialCancerCells)
@@ -320,54 +331,89 @@ class CancerInmunoediting(mesa.Model):
             self.successTan1 = abs(int(np.random.normal(self.mu1,self.sigma1)*10))
             self.successTam2 = 100 - self.successTam1
             self.successTan2 = 100 - self.successTan1
+            
+            # Promedio:
+            # T cells CD8    0.093508
+            # Monocytes      0.382550
+            # T cells CD4    0.358092
+            # NKT cells      0.002955
+            # B cells        0.062461
+            # NK cells       0.100434
+            # P-value        0.000000
+            # Correlation    0.825661
+            # RMSE           0.620498
+            # dtype: float64
+
+            # Desviación Estándar:
+            # T cells CD8    0.050129
+            # Monocytes      0.133079
+            # T cells CD4    0.146504
+            # NKT cells      0.010235
+            # B cells        0.030384
+            # NK cells       0.031663
+            # P-value        0.000000
+            # Correlation    0.043576
+            # RMSE           0.094043
         else:
-            print("Mismas")
-            iniciales = [
-                4,
-                 71,
-                 68,
-                 37,
-                 66,
-                 59,
-                 41,
-                 #4,
-                 #71,
-                 #68,
-                 #37,
-                 97,
-                 0,
-                 152,
-                 96,
-                 24,
-                 59,
-                 11,
-                 25,
-                 72,
-                 67,
-                 4,
-                 26,
-                 4,
-                 3,
-                 10,
-                 4,
-                 7,
-                 7,
-                 2,
-                 5,
-                 179,
-                 122,
-                 128,
-                 12,
-                 77,
-                 38,
-                 9.635328315748348,
-                 0.013732375032412758,
-                 61.95419835480327,
-                 0.03799592737219082
-                ]
+            # print("Mismas")
+            # iniciales = self.iniciales
+            
+
+            # Abre el archivo y lee el contenido como una cadena
+            with open(self.iniciales, 'r') as file:
+                contenido = file.read()
+
+            # Convierte la cadena en una lista utilizando literal_eval()
+            iniciales = ast.literal_eval(contenido)
+            
+            # print(iniciales)
+            # print(type(iniciales))
+            # iniciales = [
+            #     4,
+            #      71,
+            #      68,
+            #      37,
+            #      66,
+            #      59,
+            #      41,
+            #      #4,
+            #      #71,
+            #      #68,
+            #      #37,
+            #      97,
+            #      0,
+            #      152,
+            #      96,
+            #      24,
+            #      59,
+            #      11,
+            #      25,
+            #      72,
+            #      67,
+            #      4,
+            #      26,
+            #      4,
+            #      3,
+            #      10,
+            #      4,
+            #      7,
+            #      7,
+            #      2,
+            #      5,
+            #      179,
+            #      122,
+            #      128,
+            #      12,
+            #      77,
+            #      38,
+            #      9.635328315748348,
+            #      0.013732375032412758,
+            #      61.95419835480327,
+            #      0.03799592737219082
+            #     ]
             
             self.initialCancerCells = iniciales[0]
-            print(self.initialCancerCells)
+            # print(self.initialCancerCells)
             self.initialNaturalKillers = iniciales[1]
             self.initialMacrofagues = iniciales[2]
             self.initialNeutrophils = iniciales[3]
@@ -408,14 +454,26 @@ class CancerInmunoediting(mesa.Model):
             self.MaxDeactivatingCCByM1 = iniciales[29]
             self.MaxDeactivatingCCByN1 = iniciales[30]
     
-            self.MaxActivatingCCByM1 = iniciales[31]
-            self.MaxActivatingCCByN1 = iniciales[32]
+            self.MaxActivatingCCByM2 = iniciales[31]
+            self.MaxActivatingCCByN2 = iniciales[32]
             
             self.isGrowthFactor = iniciales[33]
-            self.aIS = iniciales[34]
+            self.aIS = self.derLogistic(10*(self.isGrowthFactor * 0.01),50)
             
-            self.ccGrowthFactor = iniciales[35]
-            self.aCC = iniciales[36]
+            self.ccGrowthFactor = iniciales[34]
+            self.aCC = self.derLogistic(10*(self.ccGrowthFactor * 0.01),50)
+            
+            self.successOfInteracTregCellsTCells = iniciales[35]
+            self.successOfInteracTregCellsThCells = iniciales[36]
+            self.successOfInteracTCellsTumor = iniciales[37]
+            self.succesInteracThCellTC = iniciales[38]
+            self.succesInteracNeutTum = iniciales[39]
+            self.successInteracMacrTum = iniciales[40]
+            self.successTam1 = iniciales[41]
+            self.successTan1 = iniciales[42]
+            self.successTam2 = 100 - self.successTam1
+            self.successTan2 = 100 - self.successTan1
+            
         
         
     
